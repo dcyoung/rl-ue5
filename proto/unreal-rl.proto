@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package unreal_rl;
+
+////////////////////////////////////////////////////////////////////////////////
+//                                SPACES 
+////////////////////////////////////////////////////////////////////////////////
+enum ESpaceType {
+    E_SPACE_TYPE_DISCRETE = 0;
+    E_SPACE_TYPE_CONTINUOUS = 1;
+}
+
+message RangeInfo {
+    bool is_bounded = 4;
+    float32 low = 5;
+    float32 high = 6;
+}
+
+message Space {
+    ESpaceType type = 1;
+    repeated int32 shape = 2;
+    repeated float32 data = 3;
+    RangeInfo bounds = 4;
+}
+
+message DictSpace {
+    map<string, Space> spaces = 1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//                                Environment
+////////////////////////////////////////////////////////////////////////////////
+
+message StepRequest {
+    // an action provided by the agent
+    DictSpace action = 1;
+}
+
+message MultiAgentStepRequest {
+    // Info for each agent involved
+    repeated StepRequest requests = 1;
+}
+
+message StepResponse {
+    // this will be an element of the environment’s observation_space
+    DictSpace observation = 1;
+
+    // The amount of reward returned as a result of taking the action.
+    float32 reward = 2;
+
+    // whether a terminal state (as defined under the MDP of the task) is reached. 
+    // In this case further step() calls could return undefined results.
+    bool terminated = 3;
+
+    // whether a truncation condition outside the scope of the MDP is satisfied. 
+    // Typically a timelimit, but could also be used to indicate agent physically going out of bounds. 
+    // Can be used to end the episode prematurely before a terminal state is reached.
+    bool truncated = 4;
+
+    // A boolean value for if the episode has ended, in which case further step() calls 
+    // will return undefined results. A done signal may be emitted for different reasons: 
+    // Maybe the task underlying the environment was solved successfully, a certain timelimit 
+    // was exceeded, or the physics simulation has entered an invalid state.
+    bool done = 5;
+}
+
+message MultiAgentStepResponse {
+    // One for each agent
+    repeated StepResponse responses = 1;
+}
+
+message ResetRequest {
+    // The seed that is used to initialize the environment’s PRNG. 
+    // If default (0) will use some source of entropy instead.
+    int32 seed = 1;
+
+    // options...
+}
+
+message ResetResponse {
+    // Observation of the initial state. This will be an element of the environment’s observation_space
+    DictSpace observation = 1;
+}
+
+message GetNumAreasResponse {
+    int32 num_areas = 1;
+}
+
+service EnvironmentService {
+    // Run one timestep of the environment’s dynamics.
+    rpc Step (StepRequest) returns (StepResponse);
+    rpc MultiAgentStep (MultiAgentStepRequest) returns (MultiAgentStepResponse);
+
+    // Resets the environment to an initial state and returns the initial observation.
+    rpc Reset (ResetRequest) returns (ResetResponse);
+
+    // Override close in your subclass to perform any necessary cleanup.
+    rpc Close() returns ();
+
+    // Gets the number of training areas
+    rpc GetNumAreas () return (GetNumAreasResponse);
+
+    // Gives the format of valid actions
+    rpc GetActionSpace () returns (DictSpace);
+
+    // Gives the format of valid observations
+    rpc GetObservationSpace () returns (DictSpace);
+
+    // Gives the min and max possible rewards (if is_bounded is false, then assume -inf: inf)
+    rpc GetRewardRange () returns (RangeInfo);
+}
